@@ -1,0 +1,4 @@
+node{
+stage('SCM Checkout'){
+git 'https://github.com/SubhadipDas123/Project1.git'
+}
