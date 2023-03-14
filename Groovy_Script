@@ -1,0 +1,48 @@
+node{
+stage('SCM Checkout'){
+git 'https://github.com/damodaranj/my-app.git'
+}
+stage('maven-buildstage'){
+
+def mvnHome = tool name: 'maven_3.9.0', type: 'maven'
+sh "${mvnHome}/bin/mvn clean package"
+sh 'mv target/myweb*.war target/newapp.war'
+}
+stage('SonarQube Analysis') {
+def mvnHome = tool name: 'maven_3.9.0', type: 'maven'
+withSonarQubeEnv('sonar') {
+sh "${mvnHome}/bin/mvn sonar:sonar"
+}
+}
+stage('Build Docker Image'){
+sh 'docker build -t adidas08/myweb:0.0.2 .'
+}
+stage('Docker Image Push'){
+sh "docker login -u adidas08 -p Password123"
+sh 'docker push adidas08/myweb:0.0.2'
+}
+stage('Nexus Image Push'){
+nexusArtifactUploader artifacts:
+[[
+artifactId: 'myweb',
+classifier: '',
+file: 'target/newapp.war', type: 'war']],
+credentialsId: '34b2a019-9345-48f8-8ce1-cd0908908c29',
+groupId: 'in.javahome',
+nexusUrl: '127.0.0.1:8091',
+nexusVersion: 'nexus3',
+protocol: 'http',
+repository: 'Demo',
+version: '1.0.0'
+}
+stage('Remove Previous Container'){
+try{
+sh 'docker rm -f tomcattest'
+}catch(error){
+// do nothing if there is an exception
+}
+stage('Docker deployment'){
+sh 'docker run -d -p 8090:8080 --name tomcattest adidas08/myweb:0.0.2'
+}
+}
+}
